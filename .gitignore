@@ -1,0 +1,4 @@
+terraform-provider-freeswitch
+dist/
+.terraform/
+*.tfstate*
