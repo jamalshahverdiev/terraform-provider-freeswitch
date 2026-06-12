@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build
+        run: go build ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Unit tests (acceptance is TF_ACC-gated, skipped here)
+        run: go test ./... -count=1
+
+  docs-up-to-date:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - name: Regenerate docs and diff
+        run: |
+          go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@latest generate --provider-name freeswitch
+          git diff --exit-code docs/ || { echo "::error::docs/ is stale — run make generate"; exit 1; }
