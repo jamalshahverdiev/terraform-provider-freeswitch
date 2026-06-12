@@ -9,7 +9,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 )
 
-var version = "0.1.0"
+// version is set by goreleaser at release build time (ldflags).
+var version = "dev"
 
 func main() {
 	var debug bool
@@ -17,7 +18,7 @@ func main() {
 	flag.Parse()
 
 	err := providerserver.Serve(context.Background(), provider.New(version), providerserver.ServeOpts{
-		Address: "registry.terraform.io/local/freeswitch",
+		Address: "registry.terraform.io/jamalshahverdiev/freeswitch",
 		Debug:   debug,
 	})
 	if err != nil {
