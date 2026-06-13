@@ -9,6 +9,19 @@ Manage FreeSWITCH declaratively: users, dialplans/IVRs, call-center queues,
 audio/video conference rooms — all stored in PostgreSQL and served to
 FreeSWITCH via `mod_xml_curl`.
 
+> ⚠️ **This provider requires the FreeSWITCH IaC control-plane.** It is a
+> Terraform client for that API and does nothing on its own — every resource
+> is a call to the control-plane, which must be running and reachable. It
+> never talks to FreeSWITCH (ESL/SIP) directly. Deploy the control-plane
+> first: **https://github.com/jamalshahverdiev/freeswitch-iac-platform**
+>
+> ```
+> Terraform ─► terraform-provider-freeswitch ─► Control-Plane API ─► PostgreSQL
+>                                                      │  (mod_xml_curl / ESL)
+>                                                      ▼
+>                                                 FreeSWITCH
+> ```
+
 ## Resources
 
 - `freeswitch_domain` — directory domain (id = `name`)
