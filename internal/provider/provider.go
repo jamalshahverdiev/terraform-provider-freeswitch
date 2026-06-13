@@ -36,7 +36,9 @@ func (p *freeswitchProvider) Metadata(_ context.Context, _ provider.MetadataRequ
 
 func (p *freeswitchProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manage FreeSWITCH configuration through the FreeSWITCH IaC control-plane API.",
+		MarkdownDescription: "Manage FreeSWITCH through the FreeSWITCH IaC control-plane API. " +
+			"This provider is a client for that API and requires a running control-plane " +
+			"(see https://github.com/jamalshahverdiev/freeswitch-iac-platform); it does not talk to FreeSWITCH directly.",
 		Attributes: map[string]schema.Attribute{
 			"endpoint": schema.StringAttribute{
 				Optional:            true,
