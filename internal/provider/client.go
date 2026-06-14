@@ -451,3 +451,32 @@ func (c *Client) updateExtension(ctx context.Context, id string, e apiExtension)
 func (c *Client) deleteExtension(ctx context.Context, id string) error {
 	return c.do(ctx, http.MethodDelete, "/api/v1/dialplan/extensions/"+pathEscape(id), nil, nil)
 }
+
+type apiDevice struct {
+	ID          string `json:"id,omitempty"`
+	MAC         string `json:"mac"`
+	Vendor      string `json:"vendor"`
+	Model       string `json:"model,omitempty"`
+	Number      string `json:"number"`
+	Domain      string `json:"domain"`
+	DisplayName string `json:"display_name,omitempty"`
+	Enabled     bool   `json:"enabled"`
+	CreatedAt   string `json:"created_at,omitempty"`
+	UpdatedAt   string `json:"updated_at,omitempty"`
+}
+
+func (c *Client) createDevice(ctx context.Context, d apiDevice) (*apiDevice, error) {
+	var out apiDevice
+	return &out, c.do(ctx, http.MethodPost, "/api/v1/devices", d, &out)
+}
+func (c *Client) getDevice(ctx context.Context, mac string) (*apiDevice, error) {
+	var out apiDevice
+	return &out, c.do(ctx, http.MethodGet, "/api/v1/devices/"+pathEscape(mac), nil, &out)
+}
+func (c *Client) updateDevice(ctx context.Context, mac string, d apiDevice) (*apiDevice, error) {
+	var out apiDevice
+	return &out, c.do(ctx, http.MethodPut, "/api/v1/devices/"+pathEscape(mac), d, &out)
+}
+func (c *Client) deleteDevice(ctx context.Context, mac string) error {
+	return c.do(ctx, http.MethodDelete, "/api/v1/devices/"+pathEscape(mac), nil, nil)
+}

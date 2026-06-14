@@ -105,6 +105,7 @@ func (p *freeswitchProvider) Resources(_ context.Context) []func() resource.Reso
 		NewCCReloadResource,
 		NewConfProfileResource,
 		NewConfRoomResource,
+		NewDeviceResource,
 	}
 }
 
@@ -122,6 +123,7 @@ func (p *freeswitchProvider) DataSources(_ context.Context) []func() datasource.
 		NewCCTierDataSource,
 		NewConfProfileDataSource,
 		NewConfRoomDataSource,
+		NewDeviceDataSource,
 	}
 }
 

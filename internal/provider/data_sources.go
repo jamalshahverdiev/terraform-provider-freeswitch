@@ -771,3 +771,71 @@ func (d *confRoomDataSource) Read(ctx context.Context, req datasource.ReadReques
 	m.Enabled = types.BoolValue(out.Enabled)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
 }
+
+// ---------- freeswitch_device ----------
+
+type deviceDataSource struct{ client *Client }
+
+func NewDeviceDataSource() datasource.DataSource { return &deviceDataSource{} }
+
+func (d *deviceDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_device"
+}
+func (d *deviceDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	if req.ProviderData != nil {
+		d.client = dsClient(req.ProviderData, &resp.Diagnostics)
+	}
+}
+func (d *deviceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "Look up a provisioned phone by its MAC (any separators; normalized server-side).",
+		Attributes: map[string]schema.Attribute{
+			"mac":          schema.StringAttribute{Required: true},
+			"id":           schema.StringAttribute{Computed: true},
+			"vendor":       schema.StringAttribute{Computed: true},
+			"model":        schema.StringAttribute{Computed: true},
+			"number":       schema.StringAttribute{Computed: true},
+			"domain":       schema.StringAttribute{Computed: true},
+			"display_name": schema.StringAttribute{Computed: true},
+			"enabled":      schema.BoolAttribute{Computed: true},
+			"created_at":   schema.StringAttribute{Computed: true},
+			"updated_at":   schema.StringAttribute{Computed: true},
+		},
+	}
+}
+
+type deviceDSModel struct {
+	MAC         types.String `tfsdk:"mac"`
+	ID          types.String `tfsdk:"id"`
+	Vendor      types.String `tfsdk:"vendor"`
+	Model       types.String `tfsdk:"model"`
+	Number      types.String `tfsdk:"number"`
+	Domain      types.String `tfsdk:"domain"`
+	DisplayName types.String `tfsdk:"display_name"`
+	Enabled     types.Bool   `tfsdk:"enabled"`
+	CreatedAt   types.String `tfsdk:"created_at"`
+	UpdatedAt   types.String `tfsdk:"updated_at"`
+}
+
+func (d *deviceDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	var m deviceDSModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &m)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	out, err := d.client.getDevice(ctx, m.MAC.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("device lookup failed", err.Error())
+		return
+	}
+	m.ID = types.StringValue(out.ID)
+	m.Vendor = types.StringValue(out.Vendor)
+	m.Model = types.StringValue(out.Model)
+	m.Number = types.StringValue(out.Number)
+	m.Domain = types.StringValue(out.Domain)
+	m.DisplayName = types.StringValue(out.DisplayName)
+	m.Enabled = types.BoolValue(out.Enabled)
+	m.CreatedAt = types.StringValue(out.CreatedAt)
+	m.UpdatedAt = types.StringValue(out.UpdatedAt)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
+}
