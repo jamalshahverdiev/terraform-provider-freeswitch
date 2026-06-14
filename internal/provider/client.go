@@ -137,9 +137,10 @@ type apiAction struct {
 }
 
 type apiCondition struct {
-	Field      string      `json:"field"`
-	Expression string      `json:"expression"`
-	Actions    []apiAction `json:"actions"`
+	Field      string            `json:"field"`
+	Expression string            `json:"expression"`
+	Time       map[string]string `json:"time,omitempty"`
+	Actions    []apiAction       `json:"actions"`
 }
 
 type apiExtension struct {
