@@ -35,7 +35,7 @@ output "reception_number" {
 - `display_name` (String)
 - `domain` (String)
 - `enabled` (Boolean)
-- `id` (String)
+- `id` (String) The ID of this resource.
 - `model` (String)
 - `number` (String)
 - `updated_at` (String)
