@@ -87,10 +87,21 @@ func (d *userDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 		Attributes: map[string]schema.Attribute{
 			"domain":     schema.StringAttribute{Required: true},
 			"number":     schema.StringAttribute{Required: true},
-			"id":         schema.StringAttribute{Computed: true},
-			"enabled":    schema.BoolAttribute{Computed: true},
-			"params":     schema.MapAttribute{Computed: true, Sensitive: true, ElementType: types.StringType},
-			"variables":  schema.MapAttribute{Computed: true, ElementType: types.StringType},
+			"id":        schema.StringAttribute{Computed: true},
+			"enabled":   schema.BoolAttribute{Computed: true},
+			"params":    schema.MapAttribute{Computed: true, Sensitive: true, ElementType: types.StringType},
+			"variables": schema.MapAttribute{Computed: true, ElementType: types.StringType},
+			"voicemail": schema.SingleNestedAttribute{
+				Computed:            true,
+				MarkdownDescription: "Typed voicemail mailbox (null if the user has none).",
+				Attributes: map[string]schema.Attribute{
+					"enabled":     schema.BoolAttribute{Computed: true},
+					"password":    schema.StringAttribute{Computed: true, Sensitive: true},
+					"email":       schema.StringAttribute{Computed: true},
+					"attach_file": schema.BoolAttribute{Computed: true},
+					"email_all":   schema.BoolAttribute{Computed: true},
+				},
+			},
 			"created_at": schema.StringAttribute{Computed: true},
 			"updated_at": schema.StringAttribute{Computed: true},
 		},
@@ -115,6 +126,7 @@ func (d *userDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 	resp.Diagnostics.Append(d2...)
 	m.Params = params
 	m.Variables = vars
+	m.Voicemail = voicemailFromAPI(out.Voicemail)
 	m.CreatedAt = types.StringValue(out.CreatedAt)
 	m.UpdatedAt = types.StringValue(out.UpdatedAt)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)

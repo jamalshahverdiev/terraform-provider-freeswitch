@@ -18,14 +18,21 @@ resource "freeswitch_user" "u2001" {
   number = "2001"
 
   params = {
-    password    = var.user_password
-    vm-password = "2001"
+    password = var.user_password
   }
 
   variables = {
     effective_caller_id_name   = "User 2001"
     effective_caller_id_number = "2001"
     user_context               = "company"
+  }
+
+  # Typed mailbox — rendered into the directory as vm-* params. Prefer this
+  # over setting vm-password/vm-mailto in params by hand.
+  voicemail = {
+    password    = "2001"
+    email       = "user2001@example.com"
+    attach_file = true
   }
 }
 ```
@@ -43,12 +50,24 @@ resource "freeswitch_user" "u2001" {
 - `enabled` (Boolean)
 - `params` (Map of String, Sensitive) User params (e.g. password, vm-password). Sensitive.
 - `variables` (Map of String)
+- `voicemail` (Attributes) Typed mod_voicemail mailbox. Rendered into the directory as vm-* params. Omit the block to leave the user without voicemail. (see [below for nested schema](#nestedatt--voicemail))
 
 ### Read-Only
 
 - `created_at` (String)
 - `id` (String) The ID of this resource.
 - `updated_at` (String)
+
+<a id="nestedatt--voicemail"></a>
+### Nested Schema for `voicemail`
+
+Optional:
+
+- `attach_file` (Boolean) Attach the recording to the email (vm-attach-file).
+- `email` (String) Notification address (vm-mailto).
+- `email_all` (Boolean) Email every message (vm-email-all-messages).
+- `enabled` (Boolean)
+- `password` (String, Sensitive) Voicemail PIN (vm-password).
 
 ## Import
 

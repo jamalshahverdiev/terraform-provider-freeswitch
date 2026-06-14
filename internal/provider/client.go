@@ -112,8 +112,17 @@ type apiUser struct {
 	Enabled   bool              `json:"enabled"`
 	Params    map[string]string `json:"params"`
 	Variables map[string]string `json:"variables"`
+	Voicemail *apiVoicemail     `json:"voicemail,omitempty"`
 	CreatedAt string            `json:"created_at,omitempty"`
 	UpdatedAt string            `json:"updated_at,omitempty"`
+}
+
+type apiVoicemail struct {
+	Enabled    bool   `json:"enabled"`
+	Password   string `json:"password,omitempty"`
+	Email      string `json:"email,omitempty"`
+	AttachFile bool   `json:"attach_file"`
+	EmailAll   bool   `json:"email_all"`
 }
 
 type apiGateway struct {

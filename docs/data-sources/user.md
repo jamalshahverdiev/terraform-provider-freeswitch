@@ -35,3 +35,15 @@ data "freeswitch_user" "u2001" {
 - `params` (Map of String, Sensitive)
 - `updated_at` (String)
 - `variables` (Map of String)
+- `voicemail` (Attributes) Typed voicemail mailbox (null if the user has none). (see [below for nested schema](#nestedatt--voicemail))
+
+<a id="nestedatt--voicemail"></a>
+### Nested Schema for `voicemail`
+
+Read-Only:
+
+- `attach_file` (Boolean)
+- `email` (String)
+- `email_all` (Boolean)
+- `enabled` (Boolean)
+- `password` (String, Sensitive)
