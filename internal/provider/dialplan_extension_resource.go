@@ -31,6 +31,7 @@ type dpActionModel struct {
 type dpConditionModel struct {
 	Field      types.String    `tfsdk:"field"`
 	Expression types.String    `tfsdk:"expression"`
+	Time       types.Map       `tfsdk:"time"`
 	Actions    []dpActionModel `tfsdk:"action"`
 }
 
@@ -68,8 +69,12 @@ func (r *dialplanResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				MarkdownDescription: "Ordered match conditions. At least one is required.",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
-						"field":      schema.StringAttribute{Required: true},
-						"expression": schema.StringAttribute{Required: true},
+						"field":      schema.StringAttribute{Optional: true, MarkdownDescription: "Channel variable to match (e.g. `destination_number`). Omit for a pure time gate."},
+						"expression": schema.StringAttribute{Optional: true, MarkdownDescription: "Regex for `field`. Set together with `field`."},
+						"time": schema.MapAttribute{
+							Optional: true, ElementType: types.StringType,
+							MarkdownDescription: "FreeSWITCH time-of-day attributes, e.g. `{ wday = \"2-6\", hour = \"9-17\" }`. Supported keys: wday, mday, mon, mweek, week, hour, minute, time-of-day, date-time.",
+						},
 					},
 					Blocks: map[string]schema.Block{
 						"action": schema.ListNestedBlock{
@@ -92,7 +97,7 @@ func (r *dialplanResource) Configure(_ context.Context, req resource.ConfigureRe
 	r.client = clientFromProviderData(req.ProviderData, &resp.Diagnostics)
 }
 
-func (r *dialplanResource) apiFromModel(m dialplanModel) apiExtension {
+func (r *dialplanResource) apiFromModel(ctx context.Context, m dialplanModel) apiExtension {
 	conds := make([]apiCondition, 0, len(m.Conditions))
 	for _, c := range m.Conditions {
 		actions := make([]apiAction, 0, len(c.Actions))
@@ -102,9 +107,14 @@ func (r *dialplanResource) apiFromModel(m dialplanModel) apiExtension {
 				Data:        a.Data.ValueString(),
 			})
 		}
+		timeAttrs, _ := tfMapToGo(ctx, c.Time)
+		if len(timeAttrs) == 0 {
+			timeAttrs = nil // omitempty on the wire
+		}
 		conds = append(conds, apiCondition{
 			Field:      c.Field.ValueString(),
 			Expression: c.Expression.ValueString(),
+			Time:       timeAttrs,
 			Actions:    actions,
 		})
 	}
@@ -118,7 +128,7 @@ func (r *dialplanResource) apiFromModel(m dialplanModel) apiExtension {
 	}
 }
 
-func (r *dialplanResource) modelFromAPI(e *apiExtension, m *dialplanModel) {
+func (r *dialplanResource) modelFromAPI(ctx context.Context, e *apiExtension, m *dialplanModel) {
 	m.ID = types.StringValue(e.ID)
 	m.Name = types.StringValue(e.Name)
 	m.Domain = types.StringValue(e.Domain)
@@ -137,11 +147,16 @@ func (r *dialplanResource) modelFromAPI(e *apiExtension, m *dialplanModel) {
 			}
 			actions = append(actions, am)
 		}
-		conds = append(conds, dpConditionModel{
-			Field:      types.StringValue(c.Field),
-			Expression: types.StringValue(c.Expression),
-			Actions:    actions,
-		})
+		cm := dpConditionModel{Actions: actions}
+		cm.Field = optStr(c.Field)
+		cm.Expression = optStr(c.Expression)
+		if len(c.Time) == 0 {
+			cm.Time = types.MapNull(types.StringType)
+		} else {
+			tm, _ := goMapToTF(ctx, c.Time)
+			cm.Time = tm
+		}
+		conds = append(conds, cm)
 	}
 	m.Conditions = conds
 	m.CreatedAt = types.StringValue(e.CreatedAt)
@@ -154,12 +169,12 @@ func (r *dialplanResource) Create(ctx context.Context, req resource.CreateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	out, err := r.client.createExtension(ctx, r.apiFromModel(m))
+	out, err := r.client.createExtension(ctx, r.apiFromModel(ctx, m))
 	if err != nil {
 		resp.Diagnostics.AddError("create dialplan extension failed", err.Error())
 		return
 	}
-	r.modelFromAPI(out, &m)
+	r.modelFromAPI(ctx, out, &m)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
 }
 
@@ -178,7 +193,7 @@ func (r *dialplanResource) Read(ctx context.Context, req resource.ReadRequest, r
 		resp.Diagnostics.AddError("read dialplan extension failed", err.Error())
 		return
 	}
-	r.modelFromAPI(out, &m)
+	r.modelFromAPI(ctx, out, &m)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
 }
 
@@ -193,12 +208,12 @@ func (r *dialplanResource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	out, err := r.client.updateExtension(ctx, state.ID.ValueString(), r.apiFromModel(m))
+	out, err := r.client.updateExtension(ctx, state.ID.ValueString(), r.apiFromModel(ctx, m))
 	if err != nil {
 		resp.Diagnostics.AddError("update dialplan extension failed", err.Error())
 		return
 	}
-	r.modelFromAPI(out, &m)
+	r.modelFromAPI(ctx, out, &m)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
 }
 
