@@ -124,6 +124,7 @@ func (p *freeswitchProvider) DataSources(_ context.Context) []func() datasource.
 		NewConfProfileDataSource,
 		NewConfRoomDataSource,
 		NewDeviceDataSource,
+		NewVoicemailDataSource,
 	}
 }
 

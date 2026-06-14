@@ -489,3 +489,27 @@ func (c *Client) updateDevice(ctx context.Context, mac string, d apiDevice) (*ap
 func (c *Client) deleteDevice(ctx context.Context, mac string) error {
 	return c.do(ctx, http.MethodDelete, "/api/v1/devices/"+pathEscape(mac), nil, nil)
 }
+
+type apiVoicemailBox struct {
+	Domain   string            `json:"domain"`
+	Number   string            `json:"number"`
+	Total    int64             `json:"total"`
+	Unread   int64             `json:"unread"`
+	Messages []apiVoicemailMsg `json:"messages"`
+}
+
+type apiVoicemailMsg struct {
+	UUID         string `json:"uuid"`
+	Folder       string `json:"folder"`
+	CIDName      string `json:"cid_name"`
+	CIDNumber    string `json:"cid_number"`
+	CreatedEpoch int64  `json:"created_epoch"`
+	ReadEpoch    int64  `json:"read_epoch"`
+	MessageLen   int64  `json:"message_len"`
+	Read         bool   `json:"read"`
+}
+
+func (c *Client) getVoicemail(ctx context.Context, domain, number string) (*apiVoicemailBox, error) {
+	var out apiVoicemailBox
+	return &out, c.do(ctx, http.MethodGet, "/api/v1/voicemail/"+pathEscape(domain)+"/"+pathEscape(number), nil, &out)
+}

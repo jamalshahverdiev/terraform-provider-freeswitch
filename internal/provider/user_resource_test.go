@@ -24,6 +24,29 @@ resource "freeswitch_user" "u" {
 `, email, attach)
 }
 
+func TestAccVoicemailDataSource(t *testing.T) {
+	testAccPreCheck(t)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{ // a user with no messages yields an empty mailbox (counters = 0)
+				Config: providerConfig + `
+data "freeswitch_voicemail" "vm" {
+  domain = "tfacc-vm.example"
+  number = "9999"
+}
+`,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("data.freeswitch_voicemail.vm", "total", "0"),
+					resource.TestCheckResourceAttr("data.freeswitch_voicemail.vm", "unread", "0"),
+					resource.TestCheckResourceAttr("data.freeswitch_voicemail.vm", "messages.#", "0"),
+				),
+			},
+		},
+	})
+}
+
 func TestAccUserVoicemail(t *testing.T) {
 	testAccPreCheck(t)
 
