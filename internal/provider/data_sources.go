@@ -87,10 +87,21 @@ func (d *userDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 		Attributes: map[string]schema.Attribute{
 			"domain":     schema.StringAttribute{Required: true},
 			"number":     schema.StringAttribute{Required: true},
-			"id":         schema.StringAttribute{Computed: true},
-			"enabled":    schema.BoolAttribute{Computed: true},
-			"params":     schema.MapAttribute{Computed: true, Sensitive: true, ElementType: types.StringType},
-			"variables":  schema.MapAttribute{Computed: true, ElementType: types.StringType},
+			"id":        schema.StringAttribute{Computed: true},
+			"enabled":   schema.BoolAttribute{Computed: true},
+			"params":    schema.MapAttribute{Computed: true, Sensitive: true, ElementType: types.StringType},
+			"variables": schema.MapAttribute{Computed: true, ElementType: types.StringType},
+			"voicemail": schema.SingleNestedAttribute{
+				Computed:            true,
+				MarkdownDescription: "Typed voicemail mailbox (null if the user has none).",
+				Attributes: map[string]schema.Attribute{
+					"enabled":     schema.BoolAttribute{Computed: true},
+					"password":    schema.StringAttribute{Computed: true, Sensitive: true},
+					"email":       schema.StringAttribute{Computed: true},
+					"attach_file": schema.BoolAttribute{Computed: true},
+					"email_all":   schema.BoolAttribute{Computed: true},
+				},
+			},
 			"created_at": schema.StringAttribute{Computed: true},
 			"updated_at": schema.StringAttribute{Computed: true},
 		},
@@ -115,6 +126,7 @@ func (d *userDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 	resp.Diagnostics.Append(d2...)
 	m.Params = params
 	m.Variables = vars
+	m.Voicemail = voicemailFromAPI(out.Voicemail)
 	m.CreatedAt = types.StringValue(out.CreatedAt)
 	m.UpdatedAt = types.StringValue(out.UpdatedAt)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
@@ -837,5 +849,94 @@ func (d *deviceDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	m.Enabled = types.BoolValue(out.Enabled)
 	m.CreatedAt = types.StringValue(out.CreatedAt)
 	m.UpdatedAt = types.StringValue(out.UpdatedAt)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
+}
+
+// ---------- freeswitch_voicemail ----------
+
+type voicemailDataSource struct{ client *Client }
+
+func NewVoicemailDataSource() datasource.DataSource { return &voicemailDataSource{} }
+
+func (d *voicemailDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_voicemail"
+}
+func (d *voicemailDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	if req.ProviderData != nil {
+		d.client = dsClient(req.ProviderData, &resp.Diagnostics)
+	}
+}
+func (d *voicemailDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "Read a user's voicemail mailbox (messages + MWI counters) from freeswitch_core. Read-only.",
+		Attributes: map[string]schema.Attribute{
+			"domain": schema.StringAttribute{Required: true},
+			"number": schema.StringAttribute{Required: true},
+			"total":  schema.Int64Attribute{Computed: true},
+			"unread": schema.Int64Attribute{Computed: true, MarkdownDescription: "Unread (MWI) message count."},
+			"messages": schema.ListNestedAttribute{
+				Computed: true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"uuid":          schema.StringAttribute{Computed: true},
+						"folder":        schema.StringAttribute{Computed: true},
+						"cid_name":      schema.StringAttribute{Computed: true},
+						"cid_number":    schema.StringAttribute{Computed: true},
+						"created_epoch": schema.Int64Attribute{Computed: true},
+						"read_epoch":    schema.Int64Attribute{Computed: true},
+						"message_len":   schema.Int64Attribute{Computed: true},
+						"read":          schema.BoolAttribute{Computed: true},
+					},
+				},
+			},
+		},
+	}
+}
+
+type voicemailDSModel struct {
+	Domain   types.String   `tfsdk:"domain"`
+	Number   types.String   `tfsdk:"number"`
+	Total    types.Int64    `tfsdk:"total"`
+	Unread   types.Int64    `tfsdk:"unread"`
+	Messages []vmMsgDSModel `tfsdk:"messages"`
+}
+
+type vmMsgDSModel struct {
+	UUID         types.String `tfsdk:"uuid"`
+	Folder       types.String `tfsdk:"folder"`
+	CIDName      types.String `tfsdk:"cid_name"`
+	CIDNumber    types.String `tfsdk:"cid_number"`
+	CreatedEpoch types.Int64  `tfsdk:"created_epoch"`
+	ReadEpoch    types.Int64  `tfsdk:"read_epoch"`
+	MessageLen   types.Int64  `tfsdk:"message_len"`
+	Read         types.Bool   `tfsdk:"read"`
+}
+
+func (d *voicemailDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	var m voicemailDSModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &m)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	out, err := d.client.getVoicemail(ctx, m.Domain.ValueString(), m.Number.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("read voicemail failed", err.Error())
+		return
+	}
+	m.Total = types.Int64Value(out.Total)
+	m.Unread = types.Int64Value(out.Unread)
+	m.Messages = make([]vmMsgDSModel, 0, len(out.Messages))
+	for _, msg := range out.Messages {
+		m.Messages = append(m.Messages, vmMsgDSModel{
+			UUID:         types.StringValue(msg.UUID),
+			Folder:       types.StringValue(msg.Folder),
+			CIDName:      types.StringValue(msg.CIDName),
+			CIDNumber:    types.StringValue(msg.CIDNumber),
+			CreatedEpoch: types.Int64Value(msg.CreatedEpoch),
+			ReadEpoch:    types.Int64Value(msg.ReadEpoch),
+			MessageLen:   types.Int64Value(msg.MessageLen),
+			Read:         types.BoolValue(msg.Read),
+		})
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
 }

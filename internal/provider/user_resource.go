@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -25,14 +26,23 @@ type userResource struct{ client *Client }
 func NewUserResource() resource.Resource { return &userResource{} }
 
 type userModel struct {
-	ID        types.String `tfsdk:"id"`
-	Domain    types.String `tfsdk:"domain"`
-	Number    types.String `tfsdk:"number"`
-	Enabled   types.Bool   `tfsdk:"enabled"`
-	Params    types.Map    `tfsdk:"params"`
-	Variables types.Map    `tfsdk:"variables"`
-	CreatedAt types.String `tfsdk:"created_at"`
-	UpdatedAt types.String `tfsdk:"updated_at"`
+	ID        types.String    `tfsdk:"id"`
+	Domain    types.String    `tfsdk:"domain"`
+	Number    types.String    `tfsdk:"number"`
+	Enabled   types.Bool      `tfsdk:"enabled"`
+	Params    types.Map       `tfsdk:"params"`
+	Variables types.Map       `tfsdk:"variables"`
+	Voicemail *voicemailModel `tfsdk:"voicemail"`
+	CreatedAt types.String    `tfsdk:"created_at"`
+	UpdatedAt types.String    `tfsdk:"updated_at"`
+}
+
+type voicemailModel struct {
+	Enabled    types.Bool   `tfsdk:"enabled"`
+	Password   types.String `tfsdk:"password"`
+	Email      types.String `tfsdk:"email"`
+	AttachFile types.Bool   `tfsdk:"attach_file"`
+	EmailAll   types.Bool   `tfsdk:"email_all"`
 }
 
 func (r *userResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -52,7 +62,18 @@ func (r *userResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Optional: true, Sensitive: true, ElementType: types.StringType,
 				MarkdownDescription: "User params (e.g. password, vm-password). Sensitive.",
 			},
-			"variables":  schema.MapAttribute{Optional: true, ElementType: types.StringType},
+			"variables": schema.MapAttribute{Optional: true, ElementType: types.StringType},
+			"voicemail": schema.SingleNestedAttribute{
+				Optional:            true,
+				MarkdownDescription: "Typed mod_voicemail mailbox. Rendered into the directory as vm-* params. Omit the block to leave the user without voicemail.",
+				Attributes: map[string]schema.Attribute{
+					"enabled":     schema.BoolAttribute{Optional: true, Computed: true, Default: booldefault.StaticBool(true)},
+					"password":    schema.StringAttribute{Optional: true, Computed: true, Sensitive: true, Default: stringdefault.StaticString(""), MarkdownDescription: "Voicemail PIN (vm-password)."},
+					"email":       schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString(""), MarkdownDescription: "Notification address (vm-mailto)."},
+					"attach_file": schema.BoolAttribute{Optional: true, Computed: true, Default: booldefault.StaticBool(false), MarkdownDescription: "Attach the recording to the email (vm-attach-file)."},
+					"email_all":   schema.BoolAttribute{Optional: true, Computed: true, Default: booldefault.StaticBool(false), MarkdownDescription: "Email every message (vm-email-all-messages)."},
+				},
+			},
 			"created_at": schema.StringAttribute{Computed: true},
 			"updated_at": schema.StringAttribute{Computed: true},
 		},
@@ -72,6 +93,33 @@ func (r *userResource) apiFromModel(ctx context.Context, m userModel) apiUser {
 		Enabled:   m.Enabled.ValueBool(),
 		Params:    params,
 		Variables: vars,
+		Voicemail: voicemailToAPI(m.Voicemail),
+	}
+}
+
+func voicemailToAPI(vm *voicemailModel) *apiVoicemail {
+	if vm == nil {
+		return nil
+	}
+	return &apiVoicemail{
+		Enabled:    vm.Enabled.ValueBool(),
+		Password:   vm.Password.ValueString(),
+		Email:      vm.Email.ValueString(),
+		AttachFile: vm.AttachFile.ValueBool(),
+		EmailAll:   vm.EmailAll.ValueBool(),
+	}
+}
+
+func voicemailFromAPI(vm *apiVoicemail) *voicemailModel {
+	if vm == nil {
+		return nil
+	}
+	return &voicemailModel{
+		Enabled:    types.BoolValue(vm.Enabled),
+		Password:   types.StringValue(vm.Password),
+		Email:      types.StringValue(vm.Email),
+		AttachFile: types.BoolValue(vm.AttachFile),
+		EmailAll:   types.BoolValue(vm.EmailAll),
 	}
 }
 
@@ -87,6 +135,7 @@ func (r *userResource) modelFromAPI(ctx context.Context, u *apiUser, m *userMode
 	}
 	m.Params = params
 	m.Variables = vars
+	m.Voicemail = voicemailFromAPI(u.Voicemail)
 	m.CreatedAt = types.StringValue(u.CreatedAt)
 	m.UpdatedAt = types.StringValue(u.UpdatedAt)
 	return nil
