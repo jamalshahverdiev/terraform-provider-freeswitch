@@ -106,6 +106,7 @@ func (p *freeswitchProvider) Resources(_ context.Context) []func() resource.Reso
 		NewConfProfileResource,
 		NewConfRoomResource,
 		NewDeviceResource,
+		NewOperatorResource,
 	}
 }
 
@@ -125,6 +126,7 @@ func (p *freeswitchProvider) DataSources(_ context.Context) []func() datasource.
 		NewConfRoomDataSource,
 		NewDeviceDataSource,
 		NewVoicemailDataSource,
+		NewOperatorDataSource,
 	}
 }
 

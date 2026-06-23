@@ -513,3 +513,30 @@ func (c *Client) getVoicemail(ctx context.Context, domain, number string) (*apiV
 	var out apiVoicemailBox
 	return &out, c.do(ctx, http.MethodGet, "/api/v1/voicemail/"+pathEscape(domain)+"/"+pathEscape(number), nil, &out)
 }
+
+type apiOperator struct {
+	ID          string `json:"id,omitempty"`
+	Subject     string `json:"subject"`
+	Domain      string `json:"domain"`
+	Number      string `json:"number"`
+	DisplayName string `json:"display_name,omitempty"`
+	Enabled     bool   `json:"enabled"`
+	CreatedAt   string `json:"created_at,omitempty"`
+	UpdatedAt   string `json:"updated_at,omitempty"`
+}
+
+func (c *Client) createOperator(ctx context.Context, o apiOperator) (*apiOperator, error) {
+	var out apiOperator
+	return &out, c.do(ctx, http.MethodPost, "/api/v1/operators", o, &out)
+}
+func (c *Client) getOperator(ctx context.Context, subject string) (*apiOperator, error) {
+	var out apiOperator
+	return &out, c.do(ctx, http.MethodGet, "/api/v1/operators/"+pathEscape(subject), nil, &out)
+}
+func (c *Client) updateOperator(ctx context.Context, subject string, o apiOperator) (*apiOperator, error) {
+	var out apiOperator
+	return &out, c.do(ctx, http.MethodPut, "/api/v1/operators/"+pathEscape(subject), o, &out)
+}
+func (c *Client) deleteOperator(ctx context.Context, subject string) error {
+	return c.do(ctx, http.MethodDelete, "/api/v1/operators/"+pathEscape(subject), nil, nil)
+}
