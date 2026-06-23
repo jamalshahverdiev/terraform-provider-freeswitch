@@ -940,3 +940,65 @@ func (d *voicemailDataSource) Read(ctx context.Context, req datasource.ReadReque
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
 }
+
+// ---------- freeswitch_operator ----------
+
+type operatorDataSource struct{ client *Client }
+
+func NewOperatorDataSource() datasource.DataSource { return &operatorDataSource{} }
+
+func (d *operatorDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_operator"
+}
+func (d *operatorDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	if req.ProviderData != nil {
+		d.client = dsClient(req.ProviderData, &resp.Diagnostics)
+	}
+}
+func (d *operatorDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "Look up an operator (Keycloak subject -> SIP extension binding) by subject.",
+		Attributes: map[string]schema.Attribute{
+			"subject":      schema.StringAttribute{Required: true},
+			"id":           schema.StringAttribute{Computed: true},
+			"domain":       schema.StringAttribute{Computed: true},
+			"number":       schema.StringAttribute{Computed: true},
+			"display_name": schema.StringAttribute{Computed: true},
+			"enabled":      schema.BoolAttribute{Computed: true},
+			"created_at":   schema.StringAttribute{Computed: true},
+			"updated_at":   schema.StringAttribute{Computed: true},
+		},
+	}
+}
+
+type operatorDSModel struct {
+	Subject     types.String `tfsdk:"subject"`
+	ID          types.String `tfsdk:"id"`
+	Domain      types.String `tfsdk:"domain"`
+	Number      types.String `tfsdk:"number"`
+	DisplayName types.String `tfsdk:"display_name"`
+	Enabled     types.Bool   `tfsdk:"enabled"`
+	CreatedAt   types.String `tfsdk:"created_at"`
+	UpdatedAt   types.String `tfsdk:"updated_at"`
+}
+
+func (d *operatorDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	var m operatorDSModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &m)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	out, err := d.client.getOperator(ctx, m.Subject.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("read operator failed", err.Error())
+		return
+	}
+	m.ID = types.StringValue(out.ID)
+	m.Domain = types.StringValue(out.Domain)
+	m.Number = types.StringValue(out.Number)
+	m.DisplayName = types.StringValue(out.DisplayName)
+	m.Enabled = types.BoolValue(out.Enabled)
+	m.CreatedAt = types.StringValue(out.CreatedAt)
+	m.UpdatedAt = types.StringValue(out.UpdatedAt)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
+}
